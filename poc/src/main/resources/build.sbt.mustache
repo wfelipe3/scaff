@@ -1,0 +1,23 @@
+val zioVersion = "1.0.3"
+
+{{#modules}}
+lazy val {{name}} = project
+  .in(file("."))
+  .settings(
+    name := "poc",
+    version := "0.1.0",
+    scalaVersion := "{{scalaVersion}}",
+    {{#scalaOptions}}"{{.}}"{{^-last}}, {{/-last}}{{/scalaOptions}},
+    libraryDependencies ++= Seq(
+      "dev.zio" % "zio-test_2.13" % zioVersion % "test",
+      "dev.zio" % "zio-test-sbt_2.13" % zioVersion % "test",
+      "dev.zio" % "zio-test-magnolia_2.13" % zioVersion % "test"
+    ),
+    libraryDependencies += "dev.zio" % "zio_2.13" % zioVersion,
+    libraryDependencies += "dev.zio" % "zio-streams_2.13" % zioVersion,
+    libraryDependencies += "com.github.julien-truffaut" % "monocle-core_2.13" % "2.0.5",
+    libraryDependencies += "com.monovore" % "decline_2.13" % "1.0.0",
+    libraryDependencies += "com.monovore" % "decline-effect_2.13" % "1.0.0",
+    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
+  )
+{{/modules}}

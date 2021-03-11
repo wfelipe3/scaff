@@ -1,0 +1,11 @@
+{{#modules}}
+lazy val {{name}} = project
+  .in(file("{{name}}"))
+  .settings(
+    scalaVersion := "{{scalaVersion}}",
+    scalacOptions := Seq({{#scalaOptions}}"{{.}}"{{^-last}}, {{/-last}}{{/scalaOptions}}),
+    {{#dependencies}}
+    libraryDependencies += {{.}}{{^-last}},
+{{/-last}} {{/dependencies}}
+  )
+{{/modules}}

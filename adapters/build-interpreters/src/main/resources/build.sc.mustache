@@ -1,0 +1,30 @@
+import mill._
+import mill.scalalib._
+
+{{#modules}}
+object {{name}} extends ScalaModule {
+  def scalaVersion = "{{scalaVersion}}"
+
+  def scalaOptions = Seq({{#scalaOptions}}"{{.}}"{{^-last}}, {{/-last}}{{/scalaOptions}})
+
+  override def ivyDeps =
+    Agg(
+    {{#dependencies}}
+      ivy"{{.}}"{{^-last}},
+{{/-last}} {{/dependencies}}
+    )
+
+  {{#testModules}}
+  object {{name}} extends Tests {
+    override def ivyDeps =
+      Agg(
+        {{#dependencies}}
+          ivy"{{.}}"{{^-last}},
+{{/-last}} {{/dependencies}}
+      )
+
+    override def testFrameworks = Seq({{#testFramework}}"{{.}}"{{^-last}}, {{/-last}}{{/testFramework}})
+  }
+  {{/testModules}}
+}
+{{/modules}}
