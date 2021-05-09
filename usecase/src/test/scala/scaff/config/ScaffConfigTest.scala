@@ -1,6 +1,5 @@
 package scaff.config
 
-import pureconfig._
 import zio.test._
 import zio.test.Assertion._
 import scaff.config._
@@ -11,7 +10,6 @@ import scaff.model.project._
 object ScaffConfigTest extends DefaultRunnableSpec:
 
   case class Person(name: String, lastName: String)
-  given ConfigReader[Person] = ConfigReader.forProduct2("hello", "world")(Person(_, _))
 
   def spec = 
     suite("hello")(

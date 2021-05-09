@@ -5,8 +5,6 @@ import zio.ZEnv
 import zio.ZIO
 import zio.Task
 import zio.console._
-import com.monovore.decline.effect.CommandIOApp
-import com.monovore.decline.Opts
 import cats.effect.IO
 import cats.effect.ExitCode
 import java.nio.file.Path
@@ -25,6 +23,7 @@ import cats.data.NonEmptyList
 import scaff.config._
 import java.nio.file.Paths
 import scaff.parser._
+import StorageConfig.MongoStorage
 
 object Main extends CommandIOApp(
   name = "scaff", 
@@ -113,7 +112,7 @@ object Main extends CommandIOApp(
           given BuildToolInterpreter = interpreter(buildTool)
 
           val v = for
-            values <- modules.traverse { n =>
+            values <- modules.traverse{ n =>
               ModuleName(n).map: 
                 mn => config.defaults.module(mn)
             } 
@@ -157,3 +156,4 @@ object Main extends CommandIOApp(
     def orError(e: => E) =
        option.fold(e.asLeft)(_.asRight)
 
+//4488210001057391

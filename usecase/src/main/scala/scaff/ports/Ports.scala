@@ -2,6 +2,7 @@ package scaff.ports
 
 import cats.implicits._
 import cats.effect.Sync
+import cats.effect.Async
 import scaff.model.project.Project.ProjectErrorOr
 import scaff.model.project._
 import scaff.model.file._
@@ -26,10 +27,22 @@ extension (module: Module)
   def toFiles(using buildToolInterpreter: BuildToolInterpreter) =
     buildToolInterpreter.toFiles(module)
 
+enum FileValues:
+  case Dir(name: String, files: List[FileValues])
+  case File(name: String, content: String)
+
+trait TemplateStorage:
+  def template[F[_]: Async](name: String): F[String]
+  def store[F[_]: Async](name: String, template: String): F[Unit]
+
 trait FileCreator:
-  extension [F[_]: Sync](files: FileStructure)
-    def createFiles(path: JPath): F[JPath]
+  extension (files: FileStructure)
+    def createFiles[F[_]: Async](path: JPath)(using TemplateStorage): F[JPath]
+    def createF[F[_]: Async](using TemplateStorage): F[FileValues]
 
 trait Storage[F[_]]:
   extension (project: ProjectErrorOr[Project])
-    def create: F[ProjectErrors | UUID]
+    def store: F[ProjectErrors | UUID]
+  
+trait TemplateLoader[F[_]]:
+  def loadTemplates(using TemplateStorage): F[Unit]

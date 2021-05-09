@@ -6,9 +6,9 @@ import java.nio.file.Path
 import cats.implicits._
 import Dependency._
 
-sealed trait StorageConfig
-case class FileStorage(path: String) extends StorageConfig
-case class MongoStorage(host: String, port: Int, database: String) extends StorageConfig
+enum StorageConfig:
+  case FileStorage(path: String)
+  case MongoStorage(host: String, port: Int, database: String)
 
 case class ScaffConfig(
     dependencies: Map[String, Dependency],
@@ -81,7 +81,7 @@ extension (values: List[String])
 
 val config =
   ScaffConfig(
-    storage = FileStorage(""),
+    storage = StorageConfig.FileStorage(""),
     tests = Map(
       "zio" -> (TestFramework("zio.test.sbt.ZTestFramework").get, List("zio-test", "zio-test-sbt", "zio-test-magnolia").deps)
     ),

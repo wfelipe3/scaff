@@ -2,9 +2,12 @@ package scaff.adapter
 
 import java.nio.file.{Path => JPath}
 import scaff.ports.FileCreator
+import scaff.ports.FileValues
+import scaff.ports.TemplateStorage
 import scaff.model.file._
 import FileStructure._
 import Name.Extensions._
+import Name.Extensions.given
 import cats.effect._
 import java.nio.file.Files
 import java.nio.file.StandardOpenOption._
@@ -15,8 +18,9 @@ import yamusca.imports._
 import mouse.all._
 
 given fileCreator: FileCreator with
-  extension [F[_]: Sync](files: FileStructure)
-    def createFiles(path: JPath): F[JPath] =
+
+  extension(files: FileStructure)
+    def createFiles[F[_]: Async](path: JPath)(using TemplateStorage): F[JPath] =
       files match
         case Dir(name, files) => 
           for
@@ -31,7 +35,24 @@ given fileCreator: FileCreator with
         case TemplateFile(name, templatePath, data, template) =>
           createTemplate(path, name, templatePath, template.toTemplate(data))
 
-  def createDir[F[_]: Sync](path: java.nio.file.Path, name: Name) =
+    def createF[F[_]: Async](using TemplateStorage): F[FileValues] = 
+        files match
+          case Dir(name, files) => 
+            files
+              .values
+              .toList
+              .traverse(_.createF)
+              .map:
+                f => FileValues.Dir(name.show, f)
+          case File(name, content) =>
+            Sync[F].delay:
+              FileValues.File(name.show, content)
+          case TemplateFile(name, templatePath, data, template) =>
+            getContent(templatePath, template.toTemplate(data)).map:
+              content =>
+                FileValues.File(name.show, content)
+
+  def createDir[F[_]: Async](path: java.nio.file.Path, name: Name) =
     Sync[F].delay {
       path
         .resolve(name.toPath) 
@@ -42,45 +63,32 @@ given fileCreator: FileCreator with
         }
     }
 
-  def createTemplate[F[_]: Sync, E](
+  def createTemplate[F[_]: Async, E](
     path: java.nio.file.Path, 
     name: Name, 
     templatePath: Path, 
     data: GenericContext
-  ) = 
+  )(using TemplateStorage) = 
     for 
-      temp <- getTemplate(templatePath)
-      value = data.toYamuscaValue.asContext
-      content = mustache.render(temp.toOption.get)(value)
+      content <- getContent(templatePath, data)
       p <- write(path.resolve(name.toPath), content)
     yield p
 
-  def getTemplate[F[_]: Sync, E](path: Path) =
-    path match 
-      case Path.Resources(p) =>
-        getTemplateFromResources(p)
-      case Path.External(p) =>
-        getExternalTemplate(p)
+  def getContent[F[_]: Async, E](path: Path, data: GenericContext)(using TemplateStorage) = 
+    for
+      temp <- getTemplateContent(path)
+      value = data.toYamuscaValue.asContext
+      content = mustache.render(temp.toOption.get)(value)
+    yield content
 
-  def getTemplateFromResources[F[_]: Sync, E](path: String) =
-    Sync[F].bracket {
-      Sync[F].delay(Source.fromResource(path))
-    }{s => 
-      Sync[F].delay(s.mkString).map(mustache.parse)
-    }(s => Sync[F].delay(s.close))
+  def getTemplateContent[F[_]: Async, E](path: Path)(using tempStorage: TemplateStorage) =
+    tempStorage.template(path.value).map(mustache.parse)
 
-  def getExternalTemplate[F[_]: Sync, E](path: String) =
-    Sync[F].bracket {
-      Sync[F].delay(Source.fromFile(java.io.File(path)))
-    }{s => 
-      Sync[F].delay(s.mkString).map(mustache.parse)
-    }(s => Sync[F].delay(s.close))
-
-  def createFile[F[_]: Sync](path: java.nio.file.Path, name: Name, content: String) =
+  def createFile[F[_]: Async](path: java.nio.file.Path, name: Name, content: String) =
     write(path.resolve(name.toPath), content)
 
-  def write[F[_]: Sync](path: java.nio.file.Path, content: String) =
-    Sync[F].delay {
+  def write[F[_]: Async](path: java.nio.file.Path, content: String) =
+    Async[F].delay {
       Files.write(path, content.getBytes, TRUNCATE_EXISTING, CREATE)
     }
 
@@ -95,3 +103,27 @@ given fileCreator: FileCreator with
           Value.fromMap(values.map { (key, value) =>
             (key, value.toYamuscaValue)
           })
+
+end fileCreator
+
+given fileTemplateStorage: TemplateStorage with
+
+  def template[F[_] : Async](name: String): F[String] =
+    getTemplateFromResources(name)
+
+  def store[F[_]: Async](name: String, template: String): F[Unit] = 
+    Sync[F].unit
+
+  private def getTemplateFromResources[F[_]: Sync, E](path: String) =
+    Sync[F].bracket {
+      Sync[F].delay(Source.fromResource(path))
+    }{s => 
+      Sync[F].delay(s.mkString)
+    }(s => Sync[F].delay(s.close))
+
+  private def getExternalTemplate[F[_]: Async, E](path: String) =
+    Async[F].bracket {
+      Async[F].delay(Source.fromFile(java.io.File(path)))
+    }{s => 
+      Async[F].delay(s.mkString)
+    }(s => Async[F].delay(s.close))

@@ -65,9 +65,11 @@ object FileStructure:
   def template[A: TemplatableContext](name: Name, template: Path, data: A)(using templatable: TemplatableContext[A]) =
     FileStructure.TemplateFile(name, template, data, templatable)
 
-enum Path:
-  case Resources(path: String)
-  case External(path: String)
+enum Path(path: String):
+  case Resources(path: String) extends Path(path)
+  case External(path: String) extends Path(path)
+
+  def value = path
 
 object Path:
   def resources(path: String) =
@@ -158,6 +160,9 @@ extension (files: FileStructure)
             (f.add(NonEmptyList.fromList(currentPath).get, FileStructure.Dir(name)), newNamesPath)
         }(_ => (f, newNamesPath))
     }._1
+
+  def traverse[A](f: FileStructure => A) =
+    f(files)
 
 
 enum GenericContext:

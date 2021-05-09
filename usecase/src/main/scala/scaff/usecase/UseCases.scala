@@ -13,24 +13,45 @@ enum Message:
   case Ok(message: String)
   case Error(message: String)
 
-case class ModuleWithDependency[A](module: ModuleName, dependency: A)
+case class ModuleWithDependency(
+  module: Module, 
+  dependencies: List[Dependency], 
+  dependencyGroups: List[List[Dependency]]
+)
 
 object CreateProjectUseCase:
 
+  def createFiles(
+    name: ProjectName, 
+    modules: List[ModuleWithDependency],
+  )(config: ScaffConfig)(using BuildToolInterpreter)(using FileCreator)(using Storage[IO])(using TemplateStorage) =
+    for
+      project <- IO.pure:
+        Project
+          .project(name)
+          .addAllModulesWithDepedencies(modules)
+
+      files <- IO.fromEither:
+        project
+          .toFiles
+          .leftMap(new Exception(_))
+
+      values <- files.createF[IO]
+
+      id <- project.store
+    yield 
+      values
+
   def createProject(
     name: ProjectName, 
-    modules: List[Module], 
     path: JPath,
-    dependencies: List[ModuleWithDependency[Dependency]],
-    dependenciesGroup: List[ModuleWithDependency[List[Dependency]]]
-  )(config: ScaffConfig)(using BuildToolInterpreter)(using FileCreator)(using Storage[IO]) = 
+    modules: List[ModuleWithDependency], 
+  )(config: ScaffConfig)(using BuildToolInterpreter)(using FileCreator)(using Storage[IO])(using TemplateStorage) = 
     for
       project <- IO.pure {
         Project
           .project(name)
-          .addModules(modules)
-          .addModuleWithDependency(dependencies)
-          .addAllModulesWithDepedency(dependenciesGroup)
+          .addAllModulesWithDepedencies(modules)
       }
       files <- IO.fromEither {
         project
@@ -38,17 +59,16 @@ object CreateProjectUseCase:
           .leftMap(new Exception(_))
       }
       p <- files.createFiles[IO](path)
-      id <- project.create
+      id <- project.store
     yield Message.Ok(s"project created in path ${p.toString}")
 
 extension (project: Project.ProjectErrorOr[Project])
-  def addModuleWithDependency(dependencies: List[ModuleWithDependency[Dependency]]) =
-    dependencies.foldLeft(project):
-      (p, d) =>
-        p.addDependency(d.module, d.dependency)
 
-  def addAllModulesWithDepedency(dependencies: List[ModuleWithDependency[List[Dependency]]]) =
+  def addAllModulesWithDepedencies(dependencies: List[ModuleWithDependency]) =
     dependencies.foldLeft(project):
       (p, d) =>
-        p.addDependencies(d.module, d.dependency.toSet)
+        p.addModule(d.module)
+          .addDependencies(d.module.name, d.dependencies.toSet)
+          .addDependencies(d.module.name, d.dependencyGroups.flatten.toSet)
+
 

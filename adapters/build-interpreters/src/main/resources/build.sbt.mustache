@@ -4,8 +4,19 @@ lazy val {{name}} = project
   .settings(
     scalaVersion := "{{scalaVersion}}",
     scalacOptions := Seq({{#scalaOptions}}"{{.}}"{{^-last}}, {{/-last}}{{/scalaOptions}}),
-    {{#dependencies}}
-    libraryDependencies += {{.}}{{^-last}},
-{{/-last}} {{/dependencies}}
+    {{#javaDependencies}}
+    libraryDependencies += "{{org}}" % "{{name}}" % "{{version}}",
+    {{/javaDependencies}}
+    {{#scalaDependencies}}
+    libraryDependencies += "{{org}}" %% "{{name}}" % "{{version}}",
+    {{/scalaDependencies}}
+    {{#TestModules}}
+    libraryDependencies ++= Seq(
+      {{#dependencies}}
+      "{{org}}" %% "{{name}}" % "{{version}}",
+      {{/dependencies}}
+    ),
+    testFrameworks += new TestFramework({{#testFramework}}"{{.}}"{{^-last}}, {{/-last}}{{/testFramework}}),
+    {{/TestModules}}
   )
 {{/modules}}

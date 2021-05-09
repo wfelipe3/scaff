@@ -243,6 +243,17 @@ object Project:
       .sequence
       .fold(Set.empty)(_.toSet)
 
+  extension (module: Module)
+    def getScalaDependencies =
+      moduleDependenciesLens
+        .andThen(scalaDependenciesLens)
+        .get(module.some)
+
+    def getJavaDependencies =
+      moduleDependenciesLens
+        .andThen(javaDependenciesLens)
+        .get(module.some)
+
   type ProjectErrorOr[A] = ProjectErrors | A
 
   extension [A](aOrError: ProjectErrorOr[A])

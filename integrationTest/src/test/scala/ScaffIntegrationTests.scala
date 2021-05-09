@@ -6,8 +6,6 @@ import zio.console._
 import java.nio.file.Path
 import java.nio.file.Files
 import scala.sys.process._
-import zio.nio.channels._
-import zio.nio.core.file._
 import java.util.Comparator
 import scala.language.postfixOps
 import file.testing.FileAssertions._

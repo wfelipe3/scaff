@@ -4,6 +4,8 @@ import scaff.ports._
 import scaff.model.file._
 import scaff.model.file.FileStructure._
 import scaff.model.project.TestFramework.given
+import scaff.model.project.Project.getJavaDependencies
+import scaff.model.project.Project.getScalaDependencies
 import scaff.model.project._
 import cats.implicits._
 import scala.util.chaining._
@@ -52,9 +54,34 @@ given sbtBuildToolInterpreter: BuildToolInterpreter with
       def toGenericContext: GenericContext =
         dependency match
           case Dependency.Scala(org, name, version) =>
-            s""" "$org" %% "$name" % "$version" """.trim.toGenericContext
+            GenericContext.entityValues(
+              "org" -> org.toGenericContext,
+              "name" -> name.toGenericContext,
+              "version" -> version.toGenericContext
+            )
           case Dependency.Java(org, name, version) =>
-            s""" "$org" % "$name" % "$version" """.trim.toGenericContext
+            GenericContext.entityValues(
+              "org" -> org.toGenericContext,
+              "name" -> name.toGenericContext,
+              "version" -> version.toGenericContext
+            )
+
+    given GenericContextConverter[Dependency.Scala] with
+      extension (dependency: Dependency.Scala)
+        def toGenericContext: GenericContext =
+          GenericContext.entityValues(
+            "org" -> dependency.org.toGenericContext,
+            "name" -> dependency.name.toGenericContext,
+            "version" -> dependency.version.toGenericContext
+          )
+
+  given GenericContextConverter[TestConfig] with
+    extension (testConfig: TestConfig)
+      def toGenericContext: GenericContext =
+        GenericContext.entityValues(
+          "dependencies" -> testConfig.dependencies.toSeq.sorted.toGenericContext,
+          "testFramework" -> testConfig.testFramework.fold(List.empty)(n => n.show.pure[List]).toSeq.toGenericContext
+        )
 
   given GenericContextConverter[Module] with
     extension (module: Module)
@@ -63,7 +90,9 @@ given sbtBuildToolInterpreter: BuildToolInterpreter with
           "name" -> module.name.toGenericContext,
           "scalaVersion" -> module.scalaVersion.toGenericContext,
           "scalaOptions" -> module.scalaOptions.toSeq.toGenericContext,
-          "dependencies" -> module.dependencies.toSeq.sorted.toGenericContext,
+          "javaDependencies" -> module.getJavaDependencies.toSeq.sorted.toGenericContext,
+          "scalaDependencies" -> module.getScalaDependencies.toSeq.sorted.toGenericContext,
+          "TestModules" -> module.testConfigs.toSeq.toGenericContext
         )
 
   given Templetable[Project, GenericContext] with
